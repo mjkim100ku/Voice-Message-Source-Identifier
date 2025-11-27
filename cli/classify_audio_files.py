@@ -4,9 +4,16 @@ import joblib
 import pandas as pd
 import numpy as np
 
-from extractFeature import run_extract
-from preprocessingFeature import run_preprocessing
 from sklearn.preprocessing import LabelEncoder
+
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
+
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from preprocessing.extract_feature import run_extract
+from preprocessing.preprocessing_feature import run_preprocessing
 
 THRESHOLD = 0.5
 
@@ -20,7 +27,7 @@ LDA_TARGETS = [
 ]
 
 def apply_column_filtering(df: pd.DataFrame, name: str) -> pd.DataFrame:
-    filtering_columns = joblib.load("trained_voting/filtering_columns.pkl")
+    filtering_columns = joblib.load("models/filtering_columns.pkl")
     if name not in filtering_columns:
         return df
     target_cols = filtering_columns[name]
@@ -32,7 +39,7 @@ def apply_column_filtering(df: pd.DataFrame, name: str) -> pd.DataFrame:
 def apply_lda_transform(feature_folder):
     for name in LDA_TARGETS:
         raw_csv_path = os.path.join(feature_folder, f"{name}.csv")
-        lda_model_path = os.path.join("trained_voting", f"lda_{name}.pkl")
+        lda_model_path = os.path.join("models", f"lda_{name}.pkl")
 
         if not os.path.exists(raw_csv_path) or not os.path.exists(lda_model_path):
             continue
@@ -117,16 +124,16 @@ def classify_audio_voting():
     file_list = merged_data["file"].values
     merged_data = merged_data.drop(columns=["file"], errors="ignore")
 
-    used_columns = joblib.load("trained_voting/used_columns.pkl")
+    used_columns = joblib.load("models/used_columns.pkl")
     for col in used_columns:
         if col not in merged_data.columns:
             merged_data[col] = 0.0
     merged_data = merged_data[used_columns]
     X_cpu = merged_data.values
 
-    model = joblib.load("trained_voting/trained_voting.pkl")
-    scaler = joblib.load("trained_voting/scaler.pkl")
-    labels = joblib.load("trained_voting/labels.pkl")
+    model = joblib.load("models/trained_voting.pkl")
+    scaler = joblib.load("models/scaler.pkl")
+    labels = joblib.load("models/labels.pkl")
 
     X_cpu = np.nan_to_num(X_cpu, nan=0.0)
     X_scaled = scaler.transform(X_cpu)
