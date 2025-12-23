@@ -7,7 +7,8 @@ import numpy as np
 from datetime import datetime
 from pymediainfo import MediaInfo
 from collections import Counter, defaultdict
-import json
+import json, sys, shutil
+from pathlib import Path
 from parsers.aac_parser import ParseADTS
 from parsers.mp4_parser import MP4Parser
 
@@ -99,6 +100,7 @@ def AacLcADTS(file_path):
     offset = 0
 
     while offset < len(buf):
+        print(offset)
         adts, section_lengths, huffmancodebooks, err = ParseADTS(buf[offset:])
         
         if err is not None:
@@ -359,7 +361,7 @@ def flatten_iso_boxes(data, prefix="", array_keys_to_flatten=None, excluded_path
     return items
 
 
-def extract_audio_info(folder_path):
+def extract_audio_info(path):
     audio_info = []
 
     excluded_flattened_keys = {
@@ -370,67 +372,142 @@ def extract_audio_info(folder_path):
         "moov/trak/mdia/minf/stbl/stts/entries[0]/@sample_delta",
     }
 
-    for root, _, files in os.walk(folder_path):
-        for file in files:
-            file_path = os.path.join(root, file)
-            temp_adts_path = os.path.join(
-                tempfile.gettempdir(),
-                os.path.basename(os.path.splitext(file_path)[0]) + "_temp.aac",
-            )
-            print(f"Processing: {file_path}")
+    def process_file(file_path, file_name):
+        temp_adts_path = os.path.join(
+            tempfile.gettempdir(),
+            os.path.basename(os.path.splitext(file_path)[0]) + "_temp.aac",
+        )
+        if os.path.exists(temp_adts_path):
+            os.remove(temp_adts_path)
+            
+        print(f"Processing: {file_path}")
 
-            try:
-                media_info = MediaInfo.parse(file_path)
-                container_mediainfo = "Unknown"
-                bitrate_mode = "Unknown"
+        try:
+            media_info = MediaInfo.parse(file_path)
+            container_mediainfo = "Unknown"
+            bitrate_mode = "Unknown"
 
-                if media_info.general_tracks:
-                    container_mediainfo = getattr(media_info.general_tracks[0], "format", "Unknown")
+            if media_info.general_tracks:
+                container_mediainfo = getattr(media_info.general_tracks[0], "format", "Unknown")
 
-                for track in media_info.tracks:
-                    if track.track_type == "Audio":
-                        bitrate_mode = getattr(track, "bit_rate_mode", "Unknown")
-                        break
+            for track in media_info.tracks:
+                if track.track_type == "Audio":
+                    bitrate_mode = getattr(track, "bit_rate_mode", "Unknown")
+                    break
 
-                row_info = {
-                    "file": file,
-                    "codec": "Unknown",
-                    "sampling_rate": "Unknown",
-                    "samples_per_frame": "Unknown",
-                    "framerate": "Unknown",
-                    "channels": "Unknown",
-                    "bitrate": "Unknown",
-                    "bitrate_mode": bitrate_mode,
-                    "cb": "Unknown",
-                    "cbMOTPintra": "Unknown",
-                    "dpcm_sf_probabilities": "Unknown",
-                    "fa_sfmotp_inter": "Unknown",
-                    "fa_sfmotp_intra": "Unknown",
-                    "num_sec_probabilities": "Unknown",
-                    "sect_len_probabilities": "Unknown",
-                    "sect_len_motp": "Unknown",
-                }
+            row_info = {
+                "file": file_name,
+                "codec": "Unknown",
+                "sampling_rate": "Unknown",
+                "samples_per_frame": "Unknown",
+                "framerate": "Unknown",
+                "channels": "Unknown",
+                "bitrate": "Unknown",
+                "bitrate_mode": bitrate_mode,
+                "cb": "Unknown",
+                "cbMOTPintra": "Unknown",
+                "dpcm_sf_probabilities": "Unknown",
+                "fa_sfmotp_inter": "Unknown",
+                "fa_sfmotp_intra": "Unknown",
+                "num_sec_probabilities": "Unknown",
+                "sect_len_probabilities": "Unknown",
+                "sect_len_motp": "Unknown",
+            }
 
-                if container_mediainfo.upper() == "ADTS":
-                    audio_bitrate = get_bitrate_from_ffmpeg(file_path)
-                    row_info["bitrate"] = audio_bitrate
+            if container_mediainfo.upper() == "ADTS":
+                audio_bitrate = get_bitrate_from_ffmpeg(file_path)
+                row_info["bitrate"] = audio_bitrate
 
-                    frames, huffmans, sectlen = AacLcADTS(file_path)
-                    row_info["codec"] = audio_object_type_map.get(int(frames[0]["Profile"]), "Unknown")
-                    row_info["sampling_rate"] = frames[0]["SamplingFrequency"]
-                    row_info["samples_per_frame"] = frames[0]["Frame_length"]
-                    row_info["channels"] = frames[0]["ChannelConfiguration"]
-                    try:
-                        sr_val = float(row_info["sampling_rate"])
-                        spf_val = float(row_info["samples_per_frame"])
-                        if spf_val != 0:
-                            framerate = sr_val / spf_val
-                            row_info["framerate"] = f"{framerate:.3f}"
-                        else:
-                            row_info["framerate"] = "Unknown"
-                    except:
-                        pass
+                frames, huffmans, sectlen = AacLcADTS(file_path)
+                row_info["codec"] = audio_object_type_map.get(int(frames[0]["Profile"]), "Unknown")
+                row_info["sampling_rate"] = frames[0]["SamplingFrequency"]
+                row_info["samples_per_frame"] = frames[0]["Frame_length"]
+                row_info["channels"] = frames[0]["ChannelConfiguration"]
+                try:
+                    sr_val = float(row_info["sampling_rate"])
+                    spf_val = float(row_info["samples_per_frame"])
+                    if spf_val != 0:
+                        framerate = sr_val / spf_val
+                        row_info["framerate"] = f"{framerate:.3f}"
+                    else:
+                        row_info["framerate"] = "Unknown"
+                except:
+                    pass
 
+                cb, cbMOTPintra = spectral_data(huffmans)
+                dpcm_sf, fa_sfmotp_inter, fa_sfmotp_intra = scalefactor_data(frames)
+                num_sec, sect_len_prob, sect_len_motp_ = section_data(frames, sectlen)
+
+                row_info["cb"] = cb
+                row_info["cbMOTPintra"] = cbMOTPintra
+                row_info["dpcm_sf_probabilities"] = dpcm_sf
+                row_info["fa_sfmotp_inter"] = fa_sfmotp_inter
+                row_info["fa_sfmotp_intra"] = fa_sfmotp_intra
+                row_info["num_sec_probabilities"] = num_sec
+                row_info["sect_len_probabilities"] = sect_len_prob
+                row_info["sect_len_motp"] = sect_len_motp_
+
+                audio_info.append(row_info)
+                return
+
+            elif container_mediainfo.upper() in ["MPEG-4", "MP4"]:
+                MP4 = MP4Parser(file_path)
+                MP4.parse()
+                flattened = flatten_iso_boxes(MP4.atoms)
+
+                aot_key = (
+                    "moov/trak/mdia/minf/stbl/stsd/entries[0]/extensions[0]/descriptors[0]"
+                    "/sub_descriptors[1]/audio_specific_config/@audio_object_type"
+                )
+                if aot_key in flattened:
+                    val = int(flattened[aot_key])
+                    row_info["codec"] = audio_object_type_map.get(val, "Unknown")
+
+                sfi_key = (
+                    "moov/trak/mdia/minf/stbl/stsd/entries[0]/extensions[0]/descriptors[0]"
+                    "/sub_descriptors[1]/audio_specific_config/@sampling_frequency_index"
+                )
+                if sfi_key in flattened:
+                    val = int(flattened[sfi_key])
+                    row_info["sampling_rate"] = sampling_index_map.get(val, "Unknown")
+
+                ch_key = "moov/trak/mdia/minf/stbl/stsd/entries[0]/extensions[0]/descriptors[0]/sub_descriptors[1]/audio_specific_config/@channel_configuration"
+                if ch_key in flattened:
+                    row_info["channels"] = flattened[ch_key]
+
+                br_key = (
+                    "moov/trak/mdia/minf/stbl/stsd/entries[0]/extensions[0]/descriptors[0]"
+                    "/sub_descriptors[0]/@avg_bitrate"
+                )
+                if br_key in flattened:
+                    row_info["bitrate"] = flattened[br_key]
+
+                sd_key = "moov/trak/mdia/minf/stbl/stts/entries[0]/@sample_delta"
+                if sd_key in flattened:
+                    row_info["samples_per_frame"] = flattened[sd_key]
+
+                try:
+                    sr_str = row_info["sampling_rate"]
+                    spf_str = row_info["samples_per_frame"]
+                    sr_val = float(sr_str)
+                    spf_val = float(spf_str)
+                    if spf_val != 0:
+                        framerate = sr_val / spf_val
+                        row_info["framerate"] = f"{framerate:.3f}"
+                    else:
+                        row_info["framerate"] = "Unknown"
+                except:
+                    pass
+
+                for ex_key in excluded_flattened_keys:
+                    if ex_key in flattened:
+                        del flattened[ex_key]
+
+                for k, v in flattened.items():
+                    row_info[k] = v
+
+                if demux_to_adts(file_path, temp_adts_path):
+                    frames, huffmans, sectlen = AacLcADTS(temp_adts_path)
                     cb, cbMOTPintra = spectral_data(huffmans)
                     dpcm_sf, fa_sfmotp_inter, fa_sfmotp_intra = scalefactor_data(frames)
                     num_sec, sect_len_prob, sect_len_motp_ = section_data(frames, sectlen)
@@ -444,90 +521,26 @@ def extract_audio_info(folder_path):
                     row_info["sect_len_probabilities"] = sect_len_prob
                     row_info["sect_len_motp"] = sect_len_motp_
 
-                    audio_info.append(row_info)
-                    continue
+                    if os.path.exists(temp_adts_path):
+                        os.remove(temp_adts_path)
 
-                elif container_mediainfo.upper() in ["MPEG-4", "MP4"]:
-                    MP4 = MP4Parser(file_path)
-                    MP4.parse()
-                    flattened = flatten_iso_boxes(MP4.atoms)
-                    
-                    aot_key = (
-                        "moov/trak/mdia/minf/stbl/stsd/entries[0]/extensions[0]/descriptors[0]"
-                        "/sub_descriptors[1]/audio_specific_config/@audio_object_type"
-                    )
-                    if aot_key in flattened:
-                        val = int(flattened[aot_key])
-                        row_info["codec"] = audio_object_type_map.get(val, "Unknown")
+                audio_info.append(row_info)
 
-                    sfi_key = (
-                        "moov/trak/mdia/minf/stbl/stsd/entries[0]/extensions[0]/descriptors[0]"
-                        "/sub_descriptors[1]/audio_specific_config/@sampling_frequency_index"
-                    )
-                    if sfi_key in flattened:
-                        val = int(flattened[sfi_key])
-                        row_info["sampling_rate"] = sampling_index_map.get(val, "Unknown")
+            else:
+                audio_info.append(row_info)
 
-                    ch_key = "moov/trak/mdia/minf/stbl/stsd/entries[0]/extensions[0]/descriptors[0]/sub_descriptors[1]/audio_specific_config/@channel_configuration"
-                    if ch_key in flattened:
-                        row_info["channels"] = flattened[ch_key]
+        except Exception as e:
+            print(f"Error processing {file_path}: {e}")
 
-                    br_key = (
-                        "moov/trak/mdia/minf/stbl/stsd/entries[0]/extensions[0]/descriptors[0]"
-                        "/sub_descriptors[0]/@avg_bitrate"
-                    )
-                    if br_key in flattened:
-                        row_info["bitrate"] = flattened[br_key]
-
-                    sd_key = "moov/trak/mdia/minf/stbl/stts/entries[0]/@sample_delta"
-                    if sd_key in flattened:
-                        row_info["samples_per_frame"] = flattened[sd_key]
-
-                    try:
-                        sr_str = row_info["sampling_rate"]
-                        spf_str = row_info["samples_per_frame"]
-                        sr_val = float(sr_str)
-                        spf_val = float(spf_str)
-                        if spf_val != 0:
-                            framerate = sr_val / spf_val
-                            row_info["framerate"] = f"{framerate:.3f}"
-                        else:
-                            row_info["framerate"] = "Unknown"
-                    except:
-                        pass
-
-                    for ex_key in excluded_flattened_keys:
-                        if ex_key in flattened:
-                            del flattened[ex_key]
-
-                    for k, v in flattened.items():
-                        row_info[k] = v
-
-                    if demux_to_adts(file_path, temp_adts_path):
-                        frames, huffmans, sectlen = AacLcADTS(temp_adts_path)
-                        cb, cbMOTPintra = spectral_data(huffmans)
-                        dpcm_sf, fa_sfmotp_inter, fa_sfmotp_intra = scalefactor_data(frames)
-                        num_sec, sect_len_prob, sect_len_motp_ = section_data(frames, sectlen)
-
-                        row_info["cb"] = cb
-                        row_info["cbMOTPintra"] = cbMOTPintra
-                        row_info["dpcm_sf_probabilities"] = dpcm_sf
-                        row_info["fa_sfmotp_inter"] = fa_sfmotp_inter
-                        row_info["fa_sfmotp_intra"] = fa_sfmotp_intra
-                        row_info["num_sec_probabilities"] = num_sec
-                        row_info["sect_len_probabilities"] = sect_len_prob
-                        row_info["sect_len_motp"] = sect_len_motp_
-
-                        if os.path.exists(temp_adts_path):
-                            os.remove(temp_adts_path)
-
-                    audio_info.append(row_info)
-
-                else:
-                    audio_info.append(row_info)
-
-            except Exception as e:
-                print(f"Error processing {file_path}: {e}")
+    if os.path.isdir(path):
+        for root, _, files in os.walk(path):
+            for file in files:
+                file_path = os.path.join(root, file)
+                process_file(file_path, file)
+    else:
+        file_path = path
+        file_name = os.path.basename(path)
+        process_file(file_path, file_name)
 
     return audio_info
 
@@ -553,8 +566,16 @@ def run_extract(file_path):
     final_cols = front_cols + preferred_right_columns
     df = df[final_cols]
 
+    output_path = '.tmp'
+    path = Path(output_path)
+
+    if path.exists():
+        shutil.rmtree(path)
+
+    path.mkdir(parents=True, exist_ok=True)
+
     current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_csv_path = f"audio_dataset_info_{current_time}.csv"
+    output_csv_path = f"{output_path + os.path.sep}audio_dataset_info_{current_time}.csv"
     df.to_csv(output_csv_path, index=False, encoding="utf-8-sig")
 
     print(f"Audio dataset info saved to {output_csv_path}")
@@ -562,7 +583,6 @@ def run_extract(file_path):
     return output_csv_path
 
 if __name__ == "__main__":
-    import sys
     if len(sys.argv) > 1:
         dataset_folder = sys.argv[1]
     else:

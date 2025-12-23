@@ -5,6 +5,7 @@ from datetime import datetime
 import numpy as np
 import joblib
 import warnings
+from pathlib import Path
 from pandas.errors import PerformanceWarning
 
 warnings.simplefilter(action='ignore', category=PerformanceWarning)
@@ -216,9 +217,10 @@ def main(input_csv: str, out_dir: str = "./output"):
 
 def run_preprocessing(file_path):
     current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_dir_path = f".results/preprocessing_{current_time}"
+    
+    output_dir_path = f"{Path(file_path).parent.name + os.path.sep}preprocessing_{current_time}"
     main(file_path, output_dir_path)
-
+    
     return output_dir_path
 
 if __name__ == "__main__":

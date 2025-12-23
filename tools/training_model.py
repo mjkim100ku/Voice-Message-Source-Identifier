@@ -432,9 +432,5 @@ def main():
         train_all_models(csv_dir)
         sys.stdout = original_stdout
 
-    print("All results have been saved to 'result_training_20250501_162409.txt'.")
-    print("Confusion matrix images are saved in 'confusionMatrix_count_20250501_162409' (count) "
-          "and 'confusionMatrix_norm_20250501_162409' (normalized).")
-
 if __name__ == "__main__":
     main()

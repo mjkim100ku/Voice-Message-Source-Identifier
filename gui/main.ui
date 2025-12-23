@@ -1,0 +1,338 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>623</width>
+    <height>795</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Audio Source Identifier</string>
+  </property>
+  <property name="windowIcon">
+   <iconset>
+    <normaloff>logo.png</normaloff>logo.png</iconset>
+  </property>
+  <property name="autoFillBackground">
+   <bool>false</bool>
+  </property>
+  <property name="styleSheet">
+   <string>QWidget {
+    font-family: "Segoe UI";
+    font-size: 10.5pt;
+    color: #1f2328;
+}
+QMainWindow {
+    background: #f6f8fb;
+}
+QLabel#titleLabel {
+    font-size: 16pt;
+    font-weight: 600;
+}
+QLabel#subtitleLabel {
+    color: #667085;
+}
+QGroupBox {
+    background: #ffffff;
+    border: 1px solid #e6ebf2;
+    border-radius: 12px;
+    margin-top: 14px;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 12px;
+    padding: 0 6px;
+    color: #344054;
+    font-weight: 600;
+}
+QLineEdit {
+    padding: 7px 10px;
+    border: 1px solid #cfd6df;
+    border-radius: 10px;
+    background: #ffffff;
+}
+QLineEdit:focus {
+    border: 1px solid #4c8bf5;
+}
+QPushButton {
+    padding: 7px 12px;
+    border-radius: 10px;
+    border: 1px solid #cfd6df;
+    background: #f7f9fc;
+}
+QPushButton:hover { background: #eef3fb; }
+QPushButton:pressed { background: #e4ecf9; }
+
+QPushButton#pushButton_analyze {
+    background: #4c8bf5;
+    border: 1px solid #4c8bf5;
+    color: white;
+    font-weight: 600;
+}
+QPushButton#pushButton_analyze:hover { background: #3f7ee6; }
+
+QTableWidget {
+    border: 1px solid #e6ebf2;
+    border-radius: 10px;
+    background: #ffffff;
+    gridline-color: #eef2f6;
+    selection-background-color: #dbeafe;
+}
+QHeaderView::section {
+    background: #f3f6fb;
+    padding: 6px 8px;
+    border: 0px;
+    border-bottom: 1px solid #e6ebf2;
+    font-weight: 600;
+    color: #344054;
+}
+QStatusBar {
+    background: transparent;
+    color: #667085;
+}
+QFrame#progressFrame {
+    background: #ffffff;
+    border: 1px solid #e6ebf2;
+    border-radius: 12px;
+}
+QProgressBar#progressBar {
+    border: 1px solid #d7dee8;
+    border-radius: 7px;
+    background: #f3f6fb;
+    min-height: 14px;
+}
+QProgressBar#progressBar::chunk {
+    border-radius: 7px;
+    background: #4c8bf5;
+}
+QLabel#progressLabel {
+    color: #667085;
+}
+</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QGridLayout" name="gridLayout_2">
+    <property name="leftMargin">
+     <number>15</number>
+    </property>
+    <property name="rightMargin">
+     <number>15</number>
+    </property>
+    <item row="0" column="0">
+     <layout class="QVBoxLayout" name="verticalLayout" stretch="1,1,1,1000,0">
+      <property name="spacing">
+       <number>14</number>
+      </property>
+      <property name="leftMargin">
+       <number>20</number>
+      </property>
+      <property name="topMargin">
+       <number>20</number>
+      </property>
+      <property name="rightMargin">
+       <number>20</number>
+      </property>
+      <property name="bottomMargin">
+       <number>12</number>
+      </property>
+      <item>
+       <widget class="QLabel" name="titleLabel">
+        <property name="text">
+         <string>Audio Source Identifier</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="subtitleLabel">
+        <property name="text">
+         <string>Select a folder and run analysis to classify audio sources.</string>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QGroupBox" name="groupBox">
+        <property name="title">
+         <string />
+        </property>
+        <layout class="QGridLayout" name="gridLayout_4">
+         <property name="leftMargin">
+          <number>9</number>
+         </property>
+         <item row="0" column="0">
+          <layout class="QVBoxLayout" name="verticalLayout_2">
+           <item>
+            <widget class="QLabel" name="label">
+             <property name="font">
+              <font>
+               <family>Segoe UI</family>
+               <pointsize>11</pointsize>
+               <weight>75</weight>
+               <bold>true</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>Target folder path</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout">
+             <property name="spacing">
+              <number>8</number>
+             </property>
+             <property name="leftMargin">
+              <number>0</number>
+             </property>
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <property name="rightMargin">
+              <number>0</number>
+             </property>
+             <property name="bottomMargin">
+              <number>0</number>
+             </property>
+             <item>
+              <widget class="QLineEdit" name="lineEdit">
+               <property name="readOnly">
+                <bool>true</bool>
+               </property>
+               <property name="placeholderText">
+                <string>Choose a target folder…</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="pushButton_select">
+               <property name="font">
+                <font>
+                 <family>Segoe UI</family>
+                 <pointsize>11</pointsize>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>Select</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="pushButton_analyze">
+               <property name="font">
+                <font>
+                 <family>Segoe UI</family>
+                 <pointsize>11</pointsize>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>Analyze</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           </layout>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <layout class="QGridLayout" name="gridLayout">
+        <property name="sizeConstraint">
+         <enum>QLayout::SetDefaultConstraint</enum>
+        </property>
+        <item row="1" column="0">
+         <widget class="QGroupBox" name="groupBox_2">
+          <property name="title">
+           <string />
+          </property>
+          <layout class="QGridLayout" name="gridLayout_5">
+           <item row="1" column="0">
+            <widget class="QTableWidget" name="tableWidget">
+             <property name="editTriggers">
+              <set>QAbstractItemView::NoEditTriggers</set>
+             </property>
+             <property name="alternatingRowColors">
+              <bool>true</bool>
+             </property>
+             <property name="selectionBehavior">
+              <enum>QAbstractItemView::SelectRows</enum>
+             </property>
+             <property name="showGrid">
+              <bool>true</bool>
+             </property>
+             <property name="rowCount">
+              <number>0</number>
+             </property>
+             <property name="columnCount">
+              <number>3</number>
+             </property>
+             <attribute name="horizontalHeaderCascadingSectionResizes">
+              <bool>true</bool>
+             </attribute>
+             <column>
+              <property name="text">
+               <string>File</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>Predicted label</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>Confidence</string>
+              </property>
+             </column>
+            </widget>
+           </item>
+           <item row="0" column="0">
+            <widget class="QLabel" name="label_3">
+             <property name="font">
+              <font>
+               <family>Segoe UI</family>
+               <pointsize>11</pointsize>
+               <weight>75</weight>
+               <bold>true</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>Classification</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     <item><widget class="QFrame" name="progressFrame"><property name="frameShape"><enum>QFrame::StyledPanel</enum></property><property name="frameShadow"><enum>QFrame::Plain</enum></property><layout class="QHBoxLayout" name="horizontalLayout_progress"><property name="leftMargin"><number>12</number></property><property name="topMargin"><number>8</number></property><property name="rightMargin"><number>12</number></property><property name="bottomMargin"><number>8</number></property><property name="spacing"><number>10</number></property><item><widget class="QProgressBar" name="progressBar"><property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="minimumSize"><size><width>0</width><height>14</height></size></property><property name="textVisible"><bool>false</bool></property><property name="minimum"><number>0</number></property><property name="maximum"><number>100</number></property><property name="value"><number>0</number></property><property name="alignment"><set>AlignVCenter</set></property></widget></item><item><widget class="QLabel" name="progressLabel"><property name="minimumSize"><size><width>110</width><height>0</height></size></property><property name="maximumSize"><size><width>110</width><height>16777215</height></size></property><property name="alignment"><set>AlignRight|AlignVCenter</set></property><property name="text"><string>(   0 /    0)</string></property></widget></item></layout></widget></item></layout>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>623</width>
+     <height>25</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QStatusBar" name="statusbar" />
+ </widget>
+ <resources />
+ <connections />
+</ui>
