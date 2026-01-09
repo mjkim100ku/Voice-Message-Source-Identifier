@@ -1,7 +1,6 @@
 import os
 import tempfile
 import pandas as pd
-import ffmpeg
 import binascii
 import numpy as np
 from datetime import datetime
@@ -11,7 +10,7 @@ import json, sys, shutil
 from pathlib import Path
 from parsers.aac_parser import ParseADTS
 from parsers.mp4_parser import MP4Parser
-import sys, subprocess
+import subprocess
 
 audio_object_type_map = {
     0:  "NULL",
@@ -68,13 +67,76 @@ sampling_index_map = {
     12: "7350"
 }
 
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
+
+
+def get_resource_path(*parts):
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        base = sys._MEIPASS
+    else:
+        base = PROJECT_ROOT
+    return os.path.join(base, *parts)
+
+
+def resolve_ffmpeg_executable(exe_name: str) -> str:
+    env_path = os.getenv("FFMPEG_PATH") or os.getenv("FFMPEG_DIR")
+    if env_path:
+        if os.path.isdir(env_path):
+            candidate = os.path.join(env_path, exe_name)
+        else:
+            candidate = env_path
+        if os.path.exists(candidate):
+            return candidate
+
+    candidates = [
+        get_resource_path(exe_name),
+        get_resource_path("ffmpeg", exe_name),
+        get_resource_path("bin", exe_name),
+    ]
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return candidate
+    return exe_name
+
+
+def _subprocess_hide_window_kwargs():
+    if os.name == "nt":
+        si = subprocess.STARTUPINFO()
+        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        si.wShowWindow = subprocess.SW_HIDE
+        return {"startupinfo": si, "creationflags": subprocess.CREATE_NO_WINDOW}
+    return {}
+
 
 def get_bitrate_from_ffmpeg(file_path):
     try:
-        probe = ffmpeg.probe(file_path, select_streams="a:0", show_entries="stream=bit_rate", of="json")
-        streams = probe.get('streams', [])
+        ffprobe_exe = resolve_ffmpeg_executable("ffprobe.exe" if os.name == "nt" else "ffprobe")
+        cmd = [
+            ffprobe_exe,
+            "-v",
+            "error",
+            "-select_streams",
+            "a:0",
+            "-show_entries",
+            "stream=bit_rate",
+            "-of",
+            "json",
+            file_path,
+        ]
+        result = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            **_subprocess_hide_window_kwargs(),
+        )
+        if result.returncode != 0:
+            return "Unknown"
+        probe = json.loads(result.stdout or "{}")
+        streams = probe.get("streams", [])
         if streams:
-            return streams[0].get('bit_rate', "Unknown")
+            return streams[0].get("bit_rate", "Unknown")
         return "Unknown"
     except Exception as e:
         print(f"Error fetching bitrate from ffmpeg for {file_path}: {e}")
@@ -83,7 +145,27 @@ def get_bitrate_from_ffmpeg(file_path):
 
 def demux_to_adts(file_path, output_path):
     try:
-        ffmpeg.input(file_path).output(output_path, codec="copy", f="adts").run(quiet=True)
+        ffmpeg_exe = resolve_ffmpeg_executable("ffmpeg.exe" if os.name == "nt" else "ffmpeg")
+        cmd = [
+            ffmpeg_exe,
+            "-y",
+            "-i",
+            file_path,
+            "-codec",
+            "copy",
+            "-f",
+            "adts",
+            output_path,
+        ]
+        result = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            **_subprocess_hide_window_kwargs(),
+        )
+        if result.returncode != 0:
+            return False
     except Exception as e:
         print(f"Error during demuxing {file_path} to {output_path}: {e}")
         return False

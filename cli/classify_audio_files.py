@@ -53,8 +53,7 @@ def apply_column_filtering(df: pd.DataFrame, name: str) -> pd.DataFrame:
 def apply_lda_transform(feature_folder: str):
     for name in LDA_TARGETS:
         raw_csv_path = os.path.join(feature_folder, f"{name}.csv")
-        lda_model_path = os.path.join("models", f"lda_{name}.pkl")
-        joblib.load(get_resource_path("models", f"lda_{name}.pkl"))
+        lda_model_path = get_resource_path("models", f"lda_{name}.pkl")
         if not os.path.exists(raw_csv_path) or not os.path.exists(lda_model_path):
             continue
 
@@ -65,7 +64,7 @@ def apply_lda_transform(feature_folder: str):
         file_col = df["file"]
 
         # lda_bundle = joblib.load(lda_model_path)
-        lda_bundle = joblib.load(get_resource_path("models", f"lda_{name}.pkl"))
+        lda_bundle = joblib.load(lda_model_path)
         lda_model = lda_bundle["model"]
         lda_columns = lda_bundle["columns"]
 
@@ -87,7 +86,7 @@ def apply_lda_transform_in_memory(frames: dict) -> dict:
         if name not in frames:
             continue
 
-        lda_model_path = os.path.join("models", f"lda_{name}.pkl")
+        lda_model_path = get_resource_path("models", f"lda_{name}.pkl")
         if not os.path.exists(lda_model_path):
             continue
 
@@ -98,7 +97,7 @@ def apply_lda_transform_in_memory(frames: dict) -> dict:
         file_col = df["file"]
 
         # lda_bundle = joblib.load(lda_model_path)
-        lda_bundle = joblib.load(get_resource_path("models", f"lda_{name}.pkl"))
+        lda_bundle = joblib.load(lda_model_path)
         lda_model = lda_bundle["model"]
         lda_columns = lda_bundle["columns"]
 
@@ -229,9 +228,9 @@ def classify_audio_voting(audio_path: str, verbose: bool = False):
 
     # used_columns = joblib.load("models/used_columns.pkl")
     used_columns = joblib.load(get_resource_path("models", "used_columns.pkl"))
-    for col in used_columns:
-        if col not in merged_data.columns:
-            merged_data[col] = 0.0
+    missing_cols = [c for c in used_columns if c not in merged_data.columns]
+    for col in missing_cols:
+        merged_data[col] = 0.0
     merged_data = merged_data[used_columns]
     X_cpu = merged_data.values
 
