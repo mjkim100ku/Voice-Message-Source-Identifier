@@ -1,6 +1,6 @@
 import pandas as pd
 import ast
-import os
+import os, sys
 from datetime import datetime
 import numpy as np
 import joblib
@@ -9,6 +9,19 @@ from pathlib import Path
 from pandas.errors import PerformanceWarning
 
 warnings.simplefilter(action='ignore', category=PerformanceWarning)
+
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
+
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+def get_resource_path(*parts):
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        base = sys._MEIPASS
+    else:
+        base = PROJECT_ROOT
+    return os.path.join(base, *parts)
 
 def tokenize_text(text):
     if not isinstance(text, str):
@@ -23,11 +36,13 @@ def preprocess_text_feature(column, column_data):
     all_tokens = [tokenize_text(str(text)) for text in column_data]
 
     vocab_path = os.path.join("models", "vocab.pkl")
-    vocab = joblib.load(vocab_path)
+    # vocab = joblib.load(vocab_path)
+    vocab = joblib.load(get_resource_path("models", "vocab.pkl"))
+
 
     numeric_data = []
     if column not in vocab:
-        print(f"[WARN] Column '{column}' not in vocab.pkl. Skipping...")
+        # print(f"[WARN] Column '{column}' not in vocab.pkl. Skipping...")
         return np.empty((len(column_data), 0))
     for tokens in all_tokens:
         indices = text_to_indices(tokens, vocab[column])
@@ -204,16 +219,16 @@ def main(input_csv: str, out_dir: str = "./output"):
     pd.DataFrame(result_sect_len_motp_raw, columns=["file"] + [f"({m},{n})" for m in sect_len_range for n in sect_len_range]).to_csv(sect_len_motp_path, index=False)
 
 
-    print("\n=== Processing complete. ===")
-    print(f"metadata.csv => {metadata_path}")
-    print(f"cb.csv => {cb_pca_path}")
-    print(f"cbMOTPintra.csv => {cbMOTPintra_path}")
-    print(f"dpcm_sf_probabilities.csv => {dpcm_sf_path}")
-    print(f"fa_sfmotp_inter.csv => {fa_sfmotp_inter_path}")
-    print(f"fa_sfmotp_intra.csv => {fa_sfmotp_intra_path}")
-    print(f"num_sec_probabilities.csv => {num_sec_path}")
-    print(f"sect_len_probabilities.csv => {sect_len_path}")
-    print(f"sect_len_motp.csv => {sect_len_motp_path}")
+    # print("\n=== Processing complete. ===")
+    # print(f"metadata.csv => {metadata_path}")
+    # print(f"cb.csv => {cb_pca_path}")
+    # print(f"cbMOTPintra.csv => {cbMOTPintra_path}")
+    # print(f"dpcm_sf_probabilities.csv => {dpcm_sf_path}")
+    # print(f"fa_sfmotp_inter.csv => {fa_sfmotp_inter_path}")
+    # print(f"fa_sfmotp_intra.csv => {fa_sfmotp_intra_path}")
+    # print(f"num_sec_probabilities.csv => {num_sec_path}")
+    # print(f"sect_len_probabilities.csv => {sect_len_path}")
+    # print(f"sect_len_motp.csv => {sect_len_motp_path}")
 
 def run_preprocessing(file_path):
     current_time = datetime.now().strftime("%Y%m%d_%H%M%S")

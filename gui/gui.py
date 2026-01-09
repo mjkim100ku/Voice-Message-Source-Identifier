@@ -261,7 +261,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.progressLabel.setText(f"({current:4d} / {total:4d})")
 
     def on_worker_error(self, filename: str, tb: str):
-        pass
+        try:
+            log_path = os.path.join('G:', "gui_error.log")
+            with open(log_path, "a", encoding="utf-8") as f:
+                f.write(f"\n=== {filename} ===\n{tb}\n")
+        except Exception:
+            pass
 
     def on_worker_finished(self):
         self.selectButton.setEnabled(True)

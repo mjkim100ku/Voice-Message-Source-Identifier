@@ -30,8 +30,18 @@ LDA_TARGETS = [
     "sect_len_motp",
 ]
 
+
+def get_resource_path(*parts):
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        base = sys._MEIPASS
+    else:
+        base = PROJECT_ROOT
+    return os.path.join(base, *parts)
+
+
 def apply_column_filtering(df: pd.DataFrame, name: str) -> pd.DataFrame:
-    filtering_columns = joblib.load("models/filtering_columns.pkl")
+    # filtering_columns = joblib.load("models/filtering_columns.pkl")
+    filtering_columns = joblib.load(get_resource_path("models", "filtering_columns.pkl"))
     if name not in filtering_columns:
         return df
     target_cols = filtering_columns[name]
@@ -44,7 +54,7 @@ def apply_lda_transform(feature_folder: str):
     for name in LDA_TARGETS:
         raw_csv_path = os.path.join(feature_folder, f"{name}.csv")
         lda_model_path = os.path.join("models", f"lda_{name}.pkl")
-
+        joblib.load(get_resource_path("models", f"lda_{name}.pkl"))
         if not os.path.exists(raw_csv_path) or not os.path.exists(lda_model_path):
             continue
 
@@ -54,7 +64,8 @@ def apply_lda_transform(feature_folder: str):
 
         file_col = df["file"]
 
-        lda_bundle = joblib.load(lda_model_path)
+        # lda_bundle = joblib.load(lda_model_path)
+        lda_bundle = joblib.load(get_resource_path("models", f"lda_{name}.pkl"))
         lda_model = lda_bundle["model"]
         lda_columns = lda_bundle["columns"]
 
@@ -86,7 +97,8 @@ def apply_lda_transform_in_memory(frames: dict) -> dict:
 
         file_col = df["file"]
 
-        lda_bundle = joblib.load(lda_model_path)
+        # lda_bundle = joblib.load(lda_model_path)
+        lda_bundle = joblib.load(get_resource_path("models", f"lda_{name}.pkl"))
         lda_model = lda_bundle["model"]
         lda_columns = lda_bundle["columns"]
 
@@ -177,7 +189,7 @@ def normalize_frame_types(frames: dict) -> dict:
         normalized[name] = pd.concat([file_col, feature_df], axis=1)
     return normalized
 
-def classify_audio_voting(audio_path: str, verbose: bool = True):
+def classify_audio_voting(audio_path: str, verbose: bool = False):
     extracted_csv = run_extract(audio_path)
     feature_folder = run_preprocessing(extracted_csv)
     frames = None
@@ -215,16 +227,20 @@ def classify_audio_voting(audio_path: str, verbose: bool = True):
     file_list = merged_data["file"].values
     merged_data = merged_data.drop(columns=["file"], errors="ignore")
 
-    used_columns = joblib.load("models/used_columns.pkl")
+    # used_columns = joblib.load("models/used_columns.pkl")
+    used_columns = joblib.load(get_resource_path("models", "used_columns.pkl"))
     for col in used_columns:
         if col not in merged_data.columns:
             merged_data[col] = 0.0
     merged_data = merged_data[used_columns]
     X_cpu = merged_data.values
 
-    model = joblib.load("models/trained_voting.pkl")
-    scaler = joblib.load("models/scaler.pkl")
-    labels = joblib.load("models/labels.pkl")
+    # model = joblib.load("models/trained_voting.pkl")
+    # scaler = joblib.load("models/scaler.pkl")
+    # labels = joblib.load("models/labels.pkl")
+    model = joblib.load(get_resource_path("models", "trained_voting.pkl"))
+    scaler = joblib.load(get_resource_path("models", "scaler.pkl"))
+    labels = joblib.load(get_resource_path("models", "labels.pkl"))
 
     X_cpu = np.nan_to_num(X_cpu, nan=0.0)
     X_scaled = scaler.transform(X_cpu)

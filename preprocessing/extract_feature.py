@@ -11,6 +11,7 @@ import json, sys, shutil
 from pathlib import Path
 from parsers.aac_parser import ParseADTS
 from parsers.mp4_parser import MP4Parser
+import sys, subprocess
 
 audio_object_type_map = {
     0:  "NULL",
@@ -67,6 +68,7 @@ sampling_index_map = {
     12: "7350"
 }
 
+
 def get_bitrate_from_ffmpeg(file_path):
     try:
         probe = ffmpeg.probe(file_path, select_streams="a:0", show_entries="stream=bit_rate", of="json")
@@ -100,7 +102,7 @@ def AacLcADTS(file_path):
     offset = 0
 
     while offset < len(buf):
-        print(offset)
+        # print(offset)
         adts, section_lengths, huffmancodebooks, err = ParseADTS(buf[offset:])
         
         if err is not None:
@@ -380,7 +382,7 @@ def extract_audio_info(path):
         if os.path.exists(temp_adts_path):
             os.remove(temp_adts_path)
             
-        print(f"Processing: {file_path}")
+        # print(f"Processing: {file_path}")
 
         try:
             media_info = MediaInfo.parse(file_path)
@@ -578,7 +580,7 @@ def run_extract(file_path):
     output_csv_path = f"{output_path + os.path.sep}audio_dataset_info_{current_time}.csv"
     df.to_csv(output_csv_path, index=False, encoding="utf-8-sig")
 
-    print(f"Audio dataset info saved to {output_csv_path}")
+    # print(f"Audio dataset info saved to {output_csv_path}")
 
     return output_csv_path
 
