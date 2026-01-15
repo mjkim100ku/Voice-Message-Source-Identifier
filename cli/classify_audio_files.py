@@ -20,6 +20,8 @@ EXPORT_PROB_CSV = True
 PROB_CSV_DECIMALS = 12
 PROB_CSV_FLOAT_FORMAT = f"%.{PROB_CSV_DECIMALS}f"
 SESSION_TIME = datetime.now().strftime("%Y%m%d_%H%M%S")
+DEBUG_ENABLED = True
+DEBUG_LOG_PATH = os.path.join(PROJECT_ROOT, "results", "diagnostics.log")
 
 LDA_TARGETS = [
     "cbMOTPintra",
@@ -38,6 +40,15 @@ def get_resource_path(*parts):
         base = PROJECT_ROOT
     return os.path.join(base, *parts)
 
+def _debug_log(message: str):
+    if not DEBUG_ENABLED:
+        return
+    try:
+        os.makedirs(os.path.dirname(DEBUG_LOG_PATH), exist_ok=True)
+        with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(f"{datetime.now().isoformat()} {message}\n")
+    except Exception:
+        pass
 
 def apply_column_filtering(df: pd.DataFrame, name: str) -> pd.DataFrame:
     # filtering_columns = joblib.load("models/filtering_columns.pkl")
@@ -189,6 +200,7 @@ def normalize_frame_types(frames: dict) -> dict:
     return normalized
 
 def classify_audio_voting(audio_path: str, verbose: bool = False):
+    _debug_log(f"classify start path={audio_path} frozen={getattr(sys, 'frozen', False)} exe={sys.executable} cwd={os.getcwd()}")
     extracted_csv = run_extract(audio_path)
     feature_folder = run_preprocessing(extracted_csv)
     frames = None
@@ -229,6 +241,7 @@ def classify_audio_voting(audio_path: str, verbose: bool = False):
     # used_columns = joblib.load("models/used_columns.pkl")
     used_columns = joblib.load(get_resource_path("models", "used_columns.pkl"))
     missing_cols = [c for c in used_columns if c not in merged_data.columns]
+    _debug_log(f"feature columns total={len(used_columns)} missing={len(missing_cols)}")
     for col in missing_cols:
         merged_data[col] = 0.0
     merged_data = merged_data[used_columns]
@@ -240,6 +253,7 @@ def classify_audio_voting(audio_path: str, verbose: bool = False):
     model = joblib.load(get_resource_path("models", "trained_voting.pkl"))
     scaler = joblib.load(get_resource_path("models", "scaler.pkl"))
     labels = joblib.load(get_resource_path("models", "labels.pkl"))
+    _debug_log(f"models loaded labels={len(labels)} used_cols={len(used_columns)}")
 
     X_cpu = np.nan_to_num(X_cpu, nan=0.0)
     X_scaled = scaler.transform(X_cpu)
@@ -298,6 +312,7 @@ def classify_audio_voting(audio_path: str, verbose: bool = False):
                 print(f"Predicted label: {pred_label}, Max probability: {max_prob_val}")
 
         label_name, max_prob = pred_label, max_prob_val
+        _debug_log(f"pred file={file_name} label={label_name} prob={max_prob_val}")
 
     return label_name, max_prob
 

@@ -69,31 +69,44 @@ sampling_index_map = {
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
+DEBUG_ENABLED = True
+DEBUG_LOG_PATH = os.path.join(PROJECT_ROOT, "results", "diagnostics.log")
 
 
-def get_resource_path(*parts):
-    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
-        base = sys._MEIPASS
-    else:
-        base = PROJECT_ROOT
-    return os.path.join(base, *parts)
+def _debug_log(message: str):
+    if not DEBUG_ENABLED:
+        return
+    try:
+        os.makedirs(os.path.dirname(DEBUG_LOG_PATH), exist_ok=True)
+        with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(f"{datetime.now().isoformat()} {message}\n")
+    except Exception:
+        pass
 
 
 def resolve_ffmpeg_executable(exe_name: str) -> str:
-    env_path = os.getenv("FFMPEG_PATH") or os.getenv("FFMPEG_DIR")
-    if env_path:
-        if os.path.isdir(env_path):
-            candidate = os.path.join(env_path, exe_name)
-        else:
-            candidate = env_path
-        if os.path.exists(candidate):
-            return candidate
+    candidates = []
 
-    candidates = [
-        get_resource_path(exe_name),
-        get_resource_path("ffmpeg", exe_name),
-        get_resource_path("bin", exe_name),
-    ]
+    if getattr(sys, "frozen", False):
+        if hasattr(sys, "_MEIPASS"):
+            candidates.extend([
+                os.path.join(sys._MEIPASS, exe_name),
+                os.path.join(sys._MEIPASS, "ffmpeg", exe_name),
+                os.path.join(sys._MEIPASS, "bin", exe_name),
+            ])
+        exe_dir = os.path.dirname(sys.executable)
+        candidates.extend([
+            os.path.join(exe_dir, exe_name),
+            os.path.join(exe_dir, "ffmpeg", exe_name),
+            os.path.join(exe_dir, "bin", exe_name),
+        ])
+
+    candidates.extend([
+        os.path.join(PROJECT_ROOT, exe_name),
+        os.path.join(PROJECT_ROOT, "ffmpeg", exe_name),
+        os.path.join(PROJECT_ROOT, "bin", exe_name),
+        os.path.join(PROJECT_ROOT, "tools", "ffmpeg", exe_name),
+    ])
     for candidate in candidates:
         if os.path.exists(candidate):
             return candidate
@@ -112,6 +125,7 @@ def _subprocess_hide_window_kwargs():
 def get_bitrate_from_ffmpeg(file_path):
     try:
         ffprobe_exe = resolve_ffmpeg_executable("ffprobe.exe" if os.name == "nt" else "ffprobe")
+        _debug_log(f"ffprobe exe={ffprobe_exe} exists={os.path.exists(ffprobe_exe)} file={file_path}")
         cmd = [
             ffprobe_exe,
             "-v",
@@ -132,6 +146,8 @@ def get_bitrate_from_ffmpeg(file_path):
             **_subprocess_hide_window_kwargs(),
         )
         if result.returncode != 0:
+            err = (result.stderr or "").strip().replace("\r", " ").replace("\n", " ")
+            _debug_log(f"ffprobe failed rc={result.returncode} err={err[:500]}")
             return "Unknown"
         probe = json.loads(result.stdout or "{}")
         streams = probe.get("streams", [])
@@ -146,6 +162,7 @@ def get_bitrate_from_ffmpeg(file_path):
 def demux_to_adts(file_path, output_path):
     try:
         ffmpeg_exe = resolve_ffmpeg_executable("ffmpeg.exe" if os.name == "nt" else "ffmpeg")
+        _debug_log(f"ffmpeg exe={ffmpeg_exe} exists={os.path.exists(ffmpeg_exe)} in={file_path} out={output_path}")
         cmd = [
             ffmpeg_exe,
             "-y",
@@ -165,9 +182,12 @@ def demux_to_adts(file_path, output_path):
             **_subprocess_hide_window_kwargs(),
         )
         if result.returncode != 0:
+            err = (result.stderr or "").strip().replace("\r", " ").replace("\n", " ")
+            _debug_log(f"ffmpeg failed rc={result.returncode} err={err[:500]}")
             return False
     except Exception as e:
         print(f"Error during demuxing {file_path} to {output_path}: {e}")
+        _debug_log(f"ffmpeg exception err={e}")
         return False
     return True
 
@@ -447,6 +467,7 @@ def flatten_iso_boxes(data, prefix="", array_keys_to_flatten=None, excluded_path
 
 def extract_audio_info(path):
     audio_info = []
+    _debug_log(f"extract_audio_info start path={path}")
 
     excluded_flattened_keys = {
         "moov/trak/mdia/minf/stbl/stsd/entries[0]/extensions[0]/descriptors[0]/sub_descriptors[1]/audio_specific_config/@audio_object_type",
@@ -499,6 +520,7 @@ def extract_audio_info(path):
             }
 
             if container_mediainfo.upper() == "ADTS":
+                _debug_log(f"container=ADTS file={file_path}")
                 audio_bitrate = get_bitrate_from_ffmpeg(file_path)
                 row_info["bitrate"] = audio_bitrate
 
@@ -535,6 +557,7 @@ def extract_audio_info(path):
                 return
 
             elif container_mediainfo.upper() in ["MPEG-4", "MP4"]:
+                _debug_log(f"container=MP4 file={file_path}")
                 MP4 = MP4Parser(file_path)
                 MP4.parse()
                 flattened = flatten_iso_boxes(MP4.atoms)
